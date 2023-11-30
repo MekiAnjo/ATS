@@ -65,7 +65,7 @@ EAX<AES256> aes256eax;
 GCM<AES256> aes256gcm;
 XTS<AES256> aes256xts;
 
-byte buffer[16];
+alignas(16) byte buffer[16] __attribute__((aligned(16)));
 
 unsigned long totalEncryptionTime128 = 0;
 unsigned long totalDecryptionTime128 = 0;
@@ -109,9 +109,17 @@ void runExperimentGCM(AuthenticatedCipher* cipher, struct TestVector* test,
                       unsigned long& totalEncryptionTime,
                       unsigned long& totalDecryptionTime);
 
-void runExperimentXTS(XTSCommon* cipher, struct TestVector* test,
-                      unsigned long& totalEncryptionTime,
-                      unsigned long& totalDecryptionTime);
+void runExperimentXTS128(XTS<AES128>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptionTime,
+                         unsigned long& totalDecryptionTime);
+
+void runExperimentXTS192(XTS<AES192>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptionTime,
+                         unsigned long& totalDecryptionTime);
+
+void runExperimentXTS256(XTS<AES256>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptionTime,
+                         unsigned long& totalDecryptionTime);
 
 void setup() {
   Serial.begin(9600);
@@ -190,16 +198,16 @@ void setup() {
 
   Serial.print("XTS Cipher Mode Test\n");
   // Run experiment for AES-128
-  runExperimentXTS(&aes128xts, &testVectorAES128, totalEncryptionTime128,
-                   totalDecryptionTime128);
+  runExperimentXTS128(aes128xts, &testVectorAES128, totalEncryptionTime128,
+                      totalDecryptionTime128);
 
   // Run experiment for AES-192
-  runExperimentXTS(&aes192xts, &testVectorAES192, totalEncryptionTime192,
-                   totalDecryptionTime192);
+  runExperimentXTS192(aes192xts, &testVectorAES192, totalEncryptionTime192,
+                      totalDecryptionTime192);
 
   // Run experiment for AES-256
-  runExperimentXTS(&aes256xts, &testVectorAES256, totalEncryptionTime256,
-                   totalDecryptionTime256);
+  runExperimentXTS256(aes256xts, &testVectorAES256, totalEncryptionTime256,
+                      totalDecryptionTime256);
 
   // Print results
   printResults("AES-128-XTS", totalEncryptionTime128, totalDecryptionTime128);
@@ -333,22 +341,22 @@ void runExperimentGCM(AuthenticatedCipher* cipher, struct TestVector* test,
   Serial.println("");
 }
 
-void runExperimentXTS(XTSCommon* cipher, struct TestVector* test,
-                      unsigned long& totalEncryptionTime,
-                      unsigned long& totalDecryptionTime) {
+void runExperimentXTS128(XTS<AES128>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptionTime,
+                         unsigned long& totalDecryptionTime) {
   crypto_feed_watchdog();
 
   Serial.print(test->name);
   Serial.print(" Set Key ... \n");
   for (int i = 0; i < numIterations; i++) {
-    cipher->setKey(test->key, cipher->keySize() * 2);
+    cipher.setKey(test->key, cipher.keySize());
   }
 
   Serial.print(test->name);
   Serial.print(" Encrypt ... \n");
   unsigned long startEncryptionTime = micros();
   for (int i = 0; i < numIterations; i++) {
-    cipher->encryptSector(buffer, buffer);
+    cipher.encryptSector(buffer, buffer);
   }
   unsigned long endEncryptionTime = micros();
   totalEncryptionTime += endEncryptionTime - startEncryptionTime;
@@ -357,7 +365,69 @@ void runExperimentXTS(XTSCommon* cipher, struct TestVector* test,
   Serial.print(" Decrypt ... \n");
   unsigned long startDecryptionTime = micros();
   for (int i = 0; i < numIterations; i++) {
-    cipher->decryptSector(buffer, buffer);
+    cipher.decryptSector(buffer, buffer);
+  }
+  unsigned long endDecryptionTime = micros();
+  totalDecryptionTime += endDecryptionTime - startDecryptionTime;
+  Serial.println("");
+}
+
+void runExperimentXTS192(XTS<AES192>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptionTime,
+                         unsigned long& totalDecryptionTime) {
+  crypto_feed_watchdog();
+
+  Serial.print(test->name);
+  Serial.print(" Set Key ... \n");
+  for (int i = 0; i < numIterations; i++) {
+    cipher.setKey(test->key, cipher.keySize());
+  }
+
+  Serial.print(test->name);
+  Serial.print(" Encrypt ... \n");
+  unsigned long startEncryptionTime = micros();
+  for (int i = 0; i < numIterations; i++) {
+    cipher.encryptSector(buffer, buffer);
+  }
+  unsigned long endEncryptionTime = micros();
+  totalEncryptionTime += endEncryptionTime - startEncryptionTime;
+
+  Serial.print(test->name);
+  Serial.print(" Decrypt ... \n");
+  unsigned long startDecryptionTime = micros();
+  for (int i = 0; i < numIterations; i++) {
+    cipher.decryptSector(buffer, buffer);
+  }
+  unsigned long endDecryptionTime = micros();
+  totalDecryptionTime += endDecryptionTime - startDecryptionTime;
+  Serial.println("");
+}
+
+void runExperimentXTS256(XTS<AES256>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptionTime,
+                         unsigned long& totalDecryptionTime) {
+  crypto_feed_watchdog();
+
+  Serial.print(test->name);
+  Serial.print(" Set Key ... \n");
+  for (int i = 0; i < numIterations; i++) {
+    cipher.setKey(test->key, cipher.keySize() * 2);
+  }
+
+  Serial.print(test->name);
+  Serial.print(" Encrypt ... \n");
+  unsigned long startEncryptionTime = micros();
+  for (int i = 0; i < numIterations; i++) {
+    cipher.encryptSector(buffer, buffer);
+  }
+  unsigned long endEncryptionTime = micros();
+  totalEncryptionTime += endEncryptionTime - startEncryptionTime;
+
+  Serial.print(test->name);
+  Serial.print(" Decrypt ... \n");
+  unsigned long startDecryptionTime = micros();
+  for (int i = 0; i < numIterations; i++) {
+    cipher.decryptSector(buffer, buffer);
   }
   unsigned long endDecryptionTime = micros();
   totalDecryptionTime += endDecryptionTime - startDecryptionTime;
