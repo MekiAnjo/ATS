@@ -48,10 +48,24 @@ static TestVector testVectorAES256 = {
 // clang-format on
 
 AES128 aes128;
-AES192 aes192;
-AES256 aes256;
+CTR<AES128> aes128ctr;
+EAX<AES128> aes128eax;
+GCM<AES128> aes128gcm;
+XTS<AES128> aes128xts;
 
-byte buffer[16];
+AES192 aes192;
+CTR<AES192> aes192ctr;
+EAX<AES192> aes192eax;
+GCM<AES192> aes192gcm;
+XTS<AES192> aes192xts;
+
+AES256 aes256;
+CTR<AES256> aes256ctr;
+EAX<AES256> aes256eax;
+GCM<AES256> aes256gcm;
+XTS<AES256> aes256xts;
+
+alignas(16) byte buffer[16] __attribute__((aligned(16)));
 
 unsigned long totalEncryptDecryptTime128 = 0;
 unsigned long totalEncryptDecryptTime192 = 0;
@@ -60,6 +74,12 @@ unsigned long totalEncryptDecryptTime256 = 0;
 unsigned long individualEncryptDecryptTime128[100];
 unsigned long individualEncryptDecryptTime192[100];
 unsigned long individualEncryptDecryptTime256[100];
+
+void resetTotalEncryptDecryptTime() {
+  totalEncryptDecryptTime128 = 0;
+  totalEncryptDecryptTime192 = 0;
+  totalEncryptDecryptTime256 = 0;
+}
 
 const int numIterations = 100;
 
@@ -87,21 +107,293 @@ void setRandomKey(byte* key, int keySize) {
   }
 }
 
-void runExperiment(BlockCipher* cipher, struct TestVector* test,
-                   unsigned long& totalEncryptDecryptTime,
-                   unsigned long* individualEncryptDecryptTime) {
+void runExperimentBlockCipher(BlockCipher* cipher, struct TestVector* test,
+                              unsigned long& totalEncryptDecryptTime,
+                              unsigned long* individualEncryptDecryptTime);
+
+void printResults(const char* algorithm, unsigned long totalEncryptDecryptTime);
+
+void runExperimentCTR(Cipher* cipher, struct TestVector* test,
+                      unsigned long& totalEncryptDecryptTime,
+                      unsigned long* individualEncryptDecryptTime);
+
+void runExperimentEAX(AuthenticatedCipher* cipher, struct TestVector* test,
+                      unsigned long& totalEncryptDecryptTime,
+                      unsigned long* individualEncryptDecryptTime);
+
+void runExperimentGCM(AuthenticatedCipher* cipher, struct TestVector* test,
+                      unsigned long& totalEncryptDecryptTime,
+                      unsigned long* individualEncryptDecryptTime);
+
+void runExperimentXTS128(XTS<AES128>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptDecryptTime,
+                         unsigned long* individualEncryptDecryptTime);
+
+void runExperimentXTS192(XTS<AES192>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptDecryptTime,
+                         unsigned long* individualEncryptDecryptTime);
+
+void runExperimentXTS256(XTS<AES256>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptDecryptTime,
+                         unsigned long* individualEncryptDecryptTime);
+
+void setup() {
+  Serial.begin(9600);
+
+  Serial.print("Block Cipher Test\n");
+  // Run experiment for AES-128
+  runExperimentBlockCipher(&aes128, &testVectorAES128,
+                           totalEncryptDecryptTime128,
+                           individualEncryptDecryptTime128);
+
+  // Run experiment for AES-192
+  runExperimentBlockCipher(&aes192, &testVectorAES192,
+                           totalEncryptDecryptTime192,
+                           individualEncryptDecryptTime192);
+
+  // Run experiment for AES-256
+  runExperimentBlockCipher(&aes256, &testVectorAES256,
+                           totalEncryptDecryptTime256,
+                           individualEncryptDecryptTime256);
+
+  // Print results
+  printResults("AES-128", totalEncryptDecryptTime128);
+  printResults("AES-192", totalEncryptDecryptTime192);
+  printResults("AES-256", totalEncryptDecryptTime256);
+  resetTotalEncryptDecryptTime();
+
+  printAsCSV("AES-128", individualEncryptDecryptTime128);
+  printAsCSV("AES-192", individualEncryptDecryptTime192);
+  printAsCSV("AES-256", individualEncryptDecryptTime256);
+
+  Serial.print("CTR Cipher Mode Test\n");
+  // Run experiment for AES-128
+  runExperimentCTR(&aes128ctr, &testVectorAES128, totalEncryptDecryptTime128,
+                   individualEncryptDecryptTime128);
+
+  // Run experiment for AES-192
+  runExperimentCTR(&aes192ctr, &testVectorAES192, totalEncryptDecryptTime192,
+                   individualEncryptDecryptTime192);
+
+  // Run experiment for AES-256
+  runExperimentCTR(&aes256ctr, &testVectorAES256, totalEncryptDecryptTime256,
+                   individualEncryptDecryptTime256);
+
+  // Print results
+  printResults("AES-128-CTR", totalEncryptDecryptTime128);
+  printResults("AES-192-CTR", totalEncryptDecryptTime192);
+  printResults("AES-256-CTR", totalEncryptDecryptTime256);
+  resetTotalEncryptDecryptTime();
+
+  printAsCSV("AES-128-CTR", individualEncryptDecryptTime128);
+  printAsCSV("AES-192-CTR", individualEncryptDecryptTime192);
+  printAsCSV("AES-256-CTR", individualEncryptDecryptTime256);
+
+  Serial.print("EAX Cipher Mode Test\n");
+  // Run experiment for AES-128
+  runExperimentEAX(&aes128eax, &testVectorAES128, totalEncryptDecryptTime128,
+                   individualEncryptDecryptTime256);
+
+  // Run experiment for AES-192
+  runExperimentEAX(&aes192eax, &testVectorAES192, totalEncryptDecryptTime192,
+                   individualEncryptDecryptTime192);
+
+  // Run experiment for AES-256
+  runExperimentEAX(&aes256eax, &testVectorAES256, totalEncryptDecryptTime256,
+                   individualEncryptDecryptTime256);
+
+  // Print results
+  printResults("AES-128-EAX", totalEncryptDecryptTime128);
+  printResults("AES-192-EAX", totalEncryptDecryptTime192);
+  printResults("AES-256-EAX", totalEncryptDecryptTime256);
+  resetTotalEncryptDecryptTime();
+
+  printAsCSV("AES-128-EAX", individualEncryptDecryptTime128);
+  printAsCSV("AES-192-EAX", individualEncryptDecryptTime192);
+  printAsCSV("AES-256-EAX", individualEncryptDecryptTime256);
+
+  Serial.print("GCM Cipher Mode Test\n");
+  // Run experiment for AES-128
+  runExperimentGCM(&aes128gcm, &testVectorAES128, totalEncryptDecryptTime128,
+                   individualEncryptDecryptTime256);
+
+  // Run experiment for AES-192
+  runExperimentGCM(&aes192gcm, &testVectorAES192, totalEncryptDecryptTime192,
+                   individualEncryptDecryptTime192);
+
+  // Run experiment for AES-256
+  runExperimentGCM(&aes256gcm, &testVectorAES256, totalEncryptDecryptTime256,
+                   individualEncryptDecryptTime256);
+
+  // Print results
+  printResults("AES-128-GCM", totalEncryptDecryptTime128);
+  printResults("AES-192-GCM", totalEncryptDecryptTime192);
+  printResults("AES-256-GCM", totalEncryptDecryptTime256);
+  resetTotalEncryptDecryptTime();
+
+  printAsCSV("AES-128-GCM", individualEncryptDecryptTime128);
+  printAsCSV("AES-192-GCM", individualEncryptDecryptTime192);
+  printAsCSV("AES-256-GCM", individualEncryptDecryptTime256);
+
+  // Serial.print("XTS Cipher Mode Test\n");
+  // // Run experiment for AES-128
+  // runExperimentXTS128(aes128xts, &testVectorAES128, totalEncryptDecryptTime128,
+  //                     individualEncryptDecryptTime256);
+
+  // // Run experiment for AES-192
+  // runExperimentXTS192(aes192xts, &testVectorAES192, totalEncryptDecryptTime192,
+  //                     individualEncryptDecryptTime192);
+
+  // // Run experiment for AES-256
+  // runExperimentXTS256(aes256xts, &testVectorAES256, totalEncryptDecryptTime256,
+  //                     individualEncryptDecryptTime256);
+
+  // // Print results
+  // printResults("AES-128-XTS", totalEncryptDecryptTime128);
+  // printResults("AES-192-XTS", totalEncryptDecryptTime192);
+  // printResults("AES-256-XTS", totalEncryptDecryptTime256);
+  // resetTotalEncryptDecryptTime();
+
+  // printAsCSV("AES-128-XTS", individualEncryptDecryptTime128);
+  // printAsCSV("AES-192-XTS", individualEncryptDecryptTime192);
+  // printAsCSV("AES-256-XTS", individualEncryptDecryptTime256);
+}
+
+void loop() {}
+
+void runExperimentBlockCipher(BlockCipher* cipher, struct TestVector* test,
+                              unsigned long& totalEncryptDecryptTime,
+                              unsigned long* individualEncryptDecryptTime) {
   crypto_feed_watchdog();
 
   for (int i = 0; i < numIterations; i++) {
     unsigned long start = micros();
 
-    setRandomPlaintext(test->plaintext);
-    setRandomKey(test->key, cipher->keySize());
     cipher->setKey(test->key, cipher->keySize());
 
     cipher->encryptBlock(buffer, buffer);
 
     cipher->decryptBlock(buffer, buffer);
+
+    unsigned long time = micros() - start;
+    individualEncryptDecryptTime[i] = time;
+    totalEncryptDecryptTime += time;
+  }
+}
+
+void runExperimentCTR(Cipher* cipher, struct TestVector* test,
+                      unsigned long& totalEncryptDecryptTime,
+                      unsigned long* individualEncryptDecryptTime) {
+  crypto_feed_watchdog();
+
+  for (int i = 0; i < numIterations; i++) {
+    unsigned long start = micros();
+
+    cipher->setKey(test->key, cipher->keySize());
+
+    cipher->encrypt(buffer, buffer, sizeof(test->plaintext));
+
+    cipher->decrypt(buffer, buffer, sizeof(test->plaintext));
+
+    unsigned long time = micros() - start;
+    individualEncryptDecryptTime[i] = time;
+    totalEncryptDecryptTime += time;
+  }
+}
+
+void runExperimentEAX(AuthenticatedCipher* cipher, struct TestVector* test,
+                      unsigned long& totalEncryptDecryptTime,
+                      unsigned long* individualEncryptDecryptTime) {
+  crypto_feed_watchdog();
+
+  for (int i = 0; i < numIterations; i++) {
+    unsigned long start = micros();
+
+    cipher->setKey(test->key, cipher->keySize());
+
+    cipher->encrypt(buffer, buffer, sizeof(test->plaintext));
+
+    cipher->decrypt(buffer, buffer, sizeof(test->plaintext));
+
+    unsigned long time = micros() - start;
+    individualEncryptDecryptTime[i] = time;
+    totalEncryptDecryptTime += time;
+  }
+}
+
+void runExperimentGCM(AuthenticatedCipher* cipher, struct TestVector* test,
+                      unsigned long& totalEncryptDecryptTime,
+                      unsigned long* individualEncryptDecryptTime) {
+  crypto_feed_watchdog();
+
+  for (int i = 0; i < numIterations; i++) {
+    unsigned long start = micros();
+
+    cipher->setKey(test->key, cipher->keySize());
+
+    cipher->encrypt(buffer, buffer, sizeof(test->plaintext));
+
+    cipher->decrypt(buffer, buffer, sizeof(test->plaintext));
+
+    unsigned long time = micros() - start;
+    individualEncryptDecryptTime[i] = time;
+    totalEncryptDecryptTime += time;
+  }
+}
+
+void runExperimentXTS128(XTS<AES128>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptDecryptTime,
+                         unsigned long* individualEncryptDecryptTime) {
+  crypto_feed_watchdog();
+
+  for (int i = 0; i < numIterations; i++) {
+    unsigned long start = micros();
+
+    cipher.setKey(test->key, cipher.keySize());
+
+    cipher.encryptSector(buffer, buffer);
+
+    cipher.decryptSector(buffer, buffer);
+
+    unsigned long time = micros() - start;
+    individualEncryptDecryptTime[i] = time;
+    totalEncryptDecryptTime += time;
+  }
+}
+
+void runExperimentXTS192(XTS<AES192>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptDecryptTime,
+                         unsigned long* individualEncryptDecryptTime) {
+  crypto_feed_watchdog();
+
+  for (int i = 0; i < numIterations; i++) {
+    unsigned long start = micros();
+
+    cipher.setKey(test->key, cipher.keySize());
+
+    cipher.encryptSector(buffer, buffer);
+
+    cipher.decryptSector(buffer, buffer);
+
+    unsigned long time = micros() - start;
+    individualEncryptDecryptTime[i] = time;
+    totalEncryptDecryptTime += time;
+  }
+}
+
+void runExperimentXTS256(XTS<AES256>& cipher, struct TestVector* test,
+                         unsigned long& totalEncryptDecryptTime,
+                         unsigned long* individualEncryptDecryptTime) {
+  crypto_feed_watchdog();
+
+  for (int i = 0; i < numIterations; i++) {
+    unsigned long start = micros();
+
+    cipher.setKey(test->key, cipher.keySize());
+
+    cipher.encryptSector(buffer, buffer);
+
+    cipher.decryptSector(buffer, buffer);
 
     unsigned long time = micros() - start;
     individualEncryptDecryptTime[i] = time;
@@ -118,31 +410,3 @@ void printResults(const char* algorithm,
   Serial.println(" microseconds");
   Serial.println();
 }
-
-void setup() {
-  Serial.begin(9600);
-  Serial.println();
-
-  runExperiment(&aes128, &testVectorAES128, totalEncryptDecryptTime128,
-                individualEncryptDecryptTime128);
-
-  // Run experiment for AES-192
-  runExperiment(&aes192, &testVectorAES192, totalEncryptDecryptTime192,
-                individualEncryptDecryptTime192);
-
-  // Run experiment for AES-256
-  runExperiment(&aes256, &testVectorAES256, totalEncryptDecryptTime256,
-                individualEncryptDecryptTime256);
-
-  // Print results
-  printResults("AES-128", totalEncryptDecryptTime128);
-  printResults("AES-192", totalEncryptDecryptTime192);
-  printResults("AES-256", totalEncryptDecryptTime256);
-
-  // Print results as CSV
-  printAsCSV("AES-128", individualEncryptDecryptTime128);
-  printAsCSV("AES-192", individualEncryptDecryptTime192);
-  printAsCSV("AES-256", individualEncryptDecryptTime256);
-}
-
-void loop() {}
