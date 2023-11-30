@@ -59,6 +59,16 @@ unsigned long individualEncryptDecryptTime256[100];
 
 const int numIterations = 100;
 
+void printAsCSV(const char* algorithm, unsigned long* individualTimes) {
+  Serial.print(algorithm);
+  Serial.print(",");
+  for (int i = 0; i < numIterations; i++) {
+    Serial.print(individualTimes[i]);
+    Serial.print(",");
+  }
+  Serial.println();
+}
+
 void setRandomPlaintext(byte* plaintext) {
   randomSeed(analogRead(0));
   for (int i = 0; i < 16; i++) {
@@ -124,6 +134,11 @@ void setup() {
   printResults("AES-128", totalEncryptDecryptTime128);
   printResults("AES-192", totalEncryptDecryptTime192);
   printResults("AES-256", totalEncryptDecryptTime256);
+
+  // Print results as CSV
+  printAsCSV("AES-128", individualEncryptDecryptTime128);
+  printAsCSV("AES-192", individualEncryptDecryptTime192);
+  printAsCSV("AES-256", individualEncryptDecryptTime256);
 }
 
 void loop() {}

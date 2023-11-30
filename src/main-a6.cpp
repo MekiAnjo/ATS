@@ -49,13 +49,12 @@ AES256 aes256;
 
 byte buffer[16];
 
-unsigned long totalEncryptDecryptTime128 = 0;
-unsigned long totalEncryptDecryptTime192 = 0;
-unsigned long totalEncryptDecryptTime256 = 0;
-
-unsigned long individualEncryptDecryptTime128[100];
-unsigned long individualEncryptDecryptTime192[100];
-unsigned long individualEncryptDecryptTime256[100];
+unsigned long totalEncryptionTime128 = 0;
+unsigned long totalDecryptionTime128 = 0;
+unsigned long totalEncryptionTime192 = 0;
+unsigned long totalDecryptionTime192 = 0;
+unsigned long totalEncryptionTime256 = 0;
+unsigned long totalDecryptionTime256 = 0;
 
 const int numIterations = 100;
 
@@ -66,64 +65,76 @@ void setRandomPlaintext(byte* plaintext) {
   }
 }
 
-void setRandomKey(byte* key, int keySize) {
-  randomSeed(analogRead(0));
-  for (int i = 0; i < keySize; i++) {
-    key[i] = random(256);
-  }
-}
-
 void runExperiment(BlockCipher* cipher, struct TestVector* test,
-                   unsigned long& totalEncryptDecryptTime,
-                   unsigned long* individualEncryptDecryptTime) {
-  crypto_feed_watchdog();
+                   unsigned long& totalEncryptionTime,
+                   unsigned long& totalDecryptionTime);
 
-  for (int i = 0; i < numIterations; i++) {
-    unsigned long start = micros();
-
-    setRandomPlaintext(test->plaintext);
-    setRandomKey(test->key, cipher->keySize());
-    cipher->setKey(test->key, cipher->keySize());
-
-    cipher->encryptBlock(buffer, buffer);
-
-    cipher->decryptBlock(buffer, buffer);
-
-    unsigned long time = micros() - start;
-    individualEncryptDecryptTime[i] = time;
-    totalEncryptDecryptTime += time;
-  }
-}
-
-void printResults(const char* algorithm,
-                  unsigned long totalEncryptDecryptTime) {
-  Serial.print("Algorithm: ");
-  Serial.println(algorithm);
-  Serial.print("Average EncryptDecrypt Time: ");
-  Serial.print(totalEncryptDecryptTime / numIterations);
-  Serial.println(" microseconds");
-  Serial.println();
-}
+void printResults(const char* algorithm, unsigned long totalEncryptionTime,
+                  unsigned long totalDecryptionTime);
 
 void setup() {
   Serial.begin(9600);
-  Serial.println();
 
-  runExperiment(&aes128, &testVectorAES128, totalEncryptDecryptTime128,
-                individualEncryptDecryptTime128);
+  runExperiment(&aes128, &testVectorAES128, totalEncryptionTime128,
+                totalDecryptionTime128);
 
   // Run experiment for AES-192
-  runExperiment(&aes192, &testVectorAES192, totalEncryptDecryptTime192,
-                individualEncryptDecryptTime192);
+  runExperiment(&aes192, &testVectorAES192, totalEncryptionTime192,
+                totalDecryptionTime192);
 
   // Run experiment for AES-256
-  runExperiment(&aes256, &testVectorAES256, totalEncryptDecryptTime256,
-                individualEncryptDecryptTime256);
+  runExperiment(&aes256, &testVectorAES256, totalEncryptionTime256,
+                totalDecryptionTime256);
 
   // Print results
-  printResults("AES-128", totalEncryptDecryptTime128);
-  printResults("AES-192", totalEncryptDecryptTime192);
-  printResults("AES-256", totalEncryptDecryptTime256);
+  printResults("AES-128", totalEncryptionTime128, totalDecryptionTime128);
+  printResults("AES-192", totalEncryptionTime192, totalDecryptionTime192);
+  printResults("AES-256", totalEncryptionTime256, totalDecryptionTime256);
 }
 
 void loop() {}
+
+void runExperiment(BlockCipher* cipher, struct TestVector* test,
+                   unsigned long& totalEncryptionTime,
+                   unsigned long& totalDecryptionTime) {
+  crypto_feed_watchdog();
+
+  Serial.print(test->name);
+  Serial.print(" Set Key ... \n");
+  for (int i = 0; i < numIterations; i++) {
+    setRandomPlaintext(test->plaintext);
+    cipher->setKey(test->key, cipher->keySize());
+  }
+
+  Serial.print(test->name);
+  Serial.print(" Encrypt ... \n");
+  unsigned long startEncryptionTime = micros();
+  for (int i = 0; i < numIterations; i++) {
+    cipher->encryptBlock(buffer, buffer);
+  }
+  unsigned long endEncryptionTime = micros();
+  totalEncryptionTime += endEncryptionTime - startEncryptionTime;
+
+  Serial.print(test->name);
+  Serial.print(" Decrypt ... \n");
+  unsigned long startDecryptionTime = micros();
+  for (int i = 0; i < numIterations; i++) {
+    cipher->decryptBlock(buffer, buffer);
+  }
+  unsigned long endDecryptionTime = micros();
+  totalDecryptionTime += endDecryptionTime - startDecryptionTime;
+  Serial.println("");
+}
+
+void printResults(const char* algorithm, unsigned long totalEncryptionTime,
+                  unsigned long totalDecryptionTime) {
+  Serial.print("Algorithm: ");
+  Serial.println(algorithm);
+  Serial.print("Average Encryption Time: ");
+  Serial.print(totalEncryptionTime / numIterations);
+  Serial.println(" microseconds");
+  Serial.print("Average Decryption Time: ");
+  Serial.print(totalDecryptionTime / numIterations);
+  Serial.println(" microseconds");
+  Serial.println();
+}
