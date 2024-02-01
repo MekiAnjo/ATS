@@ -145,7 +145,8 @@ void runExperimentXTS256(XTS<AES256>& cipher, struct TestVector* test,
 void setup() {
   Serial.begin(9600);
 
-  for (unsigned int i = 0; i < sizeof(testSizeArray) / sizeof(testSizeArray[0]); i++) {
+  for (unsigned int i = 0; i < sizeof(testSizeArray) / sizeof(testSizeArray[0]);
+       i++) {
     resizeTestVector(&testVectorAES128, testSizeArray[i]);
     resizeTestVector(&testVectorAES192, testSizeArray[i]);
     resizeTestVector(&testVectorAES256, testSizeArray[i]);
@@ -274,6 +275,7 @@ void setup() {
     // printAsCSV("AES-192-XTS", individualEncryptDecryptTime192);
     // printAsCSV("AES-256-XTS", individualEncryptDecryptTime256);
   }
+  Serial.print("Done\n");
 }
 
 void loop() {}
