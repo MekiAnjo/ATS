@@ -4,6 +4,8 @@
 #include <Crypto.h>
 #include <EAX.h>
 #include <GCM.h>
+#include <SHA256.h>
+#include <SHA512.h>
 #include <XTS.h>
 #include <string.h>
 
@@ -11,13 +13,12 @@ struct TestVector {
   const char* name;
   byte key[32];
   size_t plaintextSize;
-  byte* plaintext;
+  int* plaintext;
 };
 
-size_t testSizeArray[] = {1024 * 1 ^ 2, 1024 * 2 ^ 2, 1024 * 2 ^ 3,
-                          1024 * 2 ^ 4};
+size_t testSizeArray[] = {1024, 2048, 4096, 8192};
 
-size_t testSize = 1024 * 2 ^ 2;
+size_t testSize = 1024;
 
 // clang-format off
 static TestVector testVectorAES128 = {
@@ -25,7 +26,7 @@ static TestVector testVectorAES128 = {
     .key         = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
                     0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F},
     .plaintextSize = testSize,
-    .plaintext   = new byte[testSize]        
+    .plaintext   = new int[testSize]        
 };
 static TestVector testVectorAES192 = {
     .name        = "AES-192-ECB",
@@ -33,7 +34,7 @@ static TestVector testVectorAES192 = {
                     0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
                     0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17},
     .plaintextSize = testSize,
-    .plaintext   = new byte[testSize]        
+    .plaintext   = new int[testSize]        
 };
 static TestVector testVectorAES256 = {
     .name        = "AES-256-ECB",
@@ -42,7 +43,7 @@ static TestVector testVectorAES256 = {
                     0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
                     0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F},
     .plaintextSize = testSize,
-    .plaintext   = new byte[testSize]       
+    .plaintext   = new int[testSize]       
 };
 // clang-format on
 
@@ -95,12 +96,12 @@ void printAsCSV(const char* algorithm, unsigned long* individualTimes) {
 void resizeTestVector(TestVector* test, size_t newSize) {
   delete[] test->plaintext;
   test->plaintextSize = newSize;
-  test->plaintext = new byte[newSize];
+  test->plaintext = new int[newSize];
 }
 
-void setRandomPlaintext(byte* plaintext, size_t plaintextSize) {
+void setRandomPlaintext(int* plaintext, size_t plaintextSize) {
   randomSeed(analogRead(0));
-  for (int i = 0; i < plaintextSize; i++) {
+  for (unsigned int i = 0; i < plaintextSize; i++) {
     plaintext[i] = random(256);
   }
 }
@@ -152,6 +153,9 @@ void setup() {
     resizeTestVector(&testVectorAES256, testSizeArray[i]);
 
     Serial.print("--------------------\n");
+    Serial.print("--------------------\n");
+    Serial.print("--------------------\n");
+
     Serial.print("Plain Text Size: " + String(testSizeArray[i]) + "\n");
 
     Serial.print("Block Cipher Test\n");
